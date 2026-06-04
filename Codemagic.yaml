@@ -13,21 +13,21 @@ workflows:
         script: |
           set -e
           echo "📁 Creating temporary native iOS directory structure..."
-          mkdir -p build/AVE.app
+          mkdir -p build/AVEApp.app
           
-          echo "⚙️ Compiling Swift files with native iOS SDK..."
+          echo "⚙️ Compiling all Swift files with native iOS SDK..."
           xcrun -sdk iphoneos swiftc -O \
             -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
             -target arm64-apple-ios15.0 \
-            AVEApp.swift ContentView.swift \
-            -o build/AVE.app/AVE
+            AVEApp.swift ContentView.swift VideoEditorViewModel.swift \
+            -o build/AVEApp.app/AVEApp
           
           echo "📄 Embedding configuration security plist..."
-          cp Info.plist build/AVE.app/Info.plist
+          cp Info.plist build/AVEApp.app/Info.plist
           
           echo "📦 Wrapping binaries into installable iOS Payload..."
           mkdir -p Payload
-          cp -r build/AVE.app Payload/
+          cp -r build/AVEApp.app Payload/
           zip -r AVEApp.ipa Payload
           
           echo "✅ Compilation completely successful!"
