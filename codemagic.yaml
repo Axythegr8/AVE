@@ -1,28 +1,35 @@
 workflows:
-  ios-custom-build:
-    name: Build Native Swift App
+  native-swift-build:
+    name: Build AVE App
     max_build_duration: 15
     instance_type: mac_mini_m2
     environment:
       xcode: latest
+    triggering:
+      events:
+        - push
     scripts:
-      - name: Create App Structure and Build
+      - name: Generate App Structure and Compile
         script: |
           set -e
-          echo "🔨 Setting up manual bundle directories..."
-          mkdir -p build/AVEApp.app
+          echo "📁 Creating temporary native iOS directory structure..."
+          mkdir -p build/AVE.app
           
-          echo "⚙️ Compiling single Swift file..."
-          xcrun -sdk iphoneos swiftc -O -sdk $(xcrun --sdk iphoneos --show-sdk-path) -target arm64-apple-ios15.0 AVEApp.swift -o build/AVEApp.app/AVEApp
+          echo "⚙️ Compiling Swift files with native iOS SDK..."
+          xcrun -sdk iphoneos swiftc -O \
+            -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
+            -target arm64-apple-ios15.0 \
+            AVEApp.swift ContentView.swift \
+            -o build/AVE.app/AVE
           
-          echo "📄 Copying configuration info plist..."
-          cp ContentView.plist build/AVEApp.app/Info.plist
+          echo "📄 Embedding configuration security plist..."
+          cp Info.plist build/AVE.app/Info.plist
           
-          echo "📦 Packaging into installable IPA format..."
+          echo "📦 Wrapping binaries into installable iOS Payload..."
           mkdir -p Payload
-          cp -r build/AVEApp.app Payload/
+          cp -r build/AVE.app Payload/
           zip -r AVEApp.ipa Payload
           
-          echo "✅ Process finished successfully!"
+          echo "✅ Compilation completely successful!"
     artifacts:
-      - *.ipa
+      - "*.ipa"
