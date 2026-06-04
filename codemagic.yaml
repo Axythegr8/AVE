@@ -9,10 +9,18 @@ workflows:
       events:
         - push
     scripts:
-      - name: Auto Generation and Device Compile
+      - name: Restructure Sources and Compile
         script: |
           set -e
-          echo "🛠️ Creating structural project specification file..."
+          echo "📁 Restructuring workspace into target source groups..."
+          mkdir -p Sources
+          
+          # Safely move your code files into the expected directory layout
+          [ -f AVEApp.swift ] && mv AVEApp.swift Sources/
+          [ -f ContentView.swift ] && mv ContentView.swift Sources/
+          [ -f VideoEditorViewModel.swift ] && mv VideoEditorViewModel.swift Sources/
+          
+          echo "🛠️ Creating localized project specification template..."
           cat << 'EOF' > project.yml
           name: AVEApp
           options:
@@ -23,19 +31,17 @@ workflows:
               platform: iOS
               deploymentTarget: "15.0"
               sources:
-                - AVEApp.swift
-                - ContentView.swift
-                - VideoEditorViewModel.swift
-                - Info.plist
+                - path: Sources
+                - path: Info.plist
           EOF
 
           echo "🚀 Installing project building engines..."
           brew install xcodegen
 
-          echo "📁 Engineering active Xcode directory structures..."
+          echo "📁 Engineering valid Xcode directory blueprints..."
           xcodegen generate
 
-          echo "⚙️ Compiling architecture via official Apple SDKs..."
+          echo "⚙️ Running machine compilation via official Apple SDKs..."
           xcodebuild -project AVEApp.xcodeproj \
             -scheme AVEApp \
             -configuration Release \
@@ -43,9 +49,10 @@ workflows:
             -derivedDataPath ./build_output \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO
 
-          echo "📦 Packaging native application contents into Payload container..."
+          echo "📦 Compressing structures into production-ready IPA layout..."
           mkdir -p Payload
           cp -r ./build_output/Build/Products/Release-iphoneos/AVEApp.app Payload/
           zip -r AVEApp.ipa Payload
