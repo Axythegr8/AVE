@@ -9,24 +9,27 @@ workflows:
       events:
         - push
     scripts:
-      - name: Generate App Structure and Compile
+      - name: Initialize Package and Compile Native App
         script: |
           set -e
+          echo "📦 Initializing native Swift package structure..."
+          rm -rf Package.swift Sources
+          swift package init --type executable --name AVEApp
+          
+          echo "📁 Moving codebase to source target directory..."
+          rm -f Sources/main.swift
+          cp AVEApp.swift Sources/
+          cp ContentView.swift Sources/
+          cp VideoEditorViewModel.swift Sources/
+          
+          echo "⚙️ Running machine compilation toolchain..."
+          swift build -c release
+          
           echo "📁 Creating temporary native iOS directory structure..."
           mkdir -p build/AVEApp.app
           
-          echo "⚙️ Compiling all Swift source code with framework linkages..."
-          xcrun -sdk iphoneos swiftc -O \
-            -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
-            -target arm64-apple-ios15.0 \
-            -framework SwiftUI \
-            -framework AVFoundation \
-            -framework AVKit \
-            -framework Vision \
-            -framework CoreImage \
-            -framework PhotosUI \
-            AVEApp.swift ContentView.swift VideoEditorViewModel.swift \
-            -o build/AVEApp.app/AVEApp
+          echo "🚀 Copying compiled release binary..."
+          cp .build/release/AVEApp build/AVEApp.app/AVEApp
           
           echo "📄 Embedding configuration security plist..."
           cp Info.plist build/AVEApp.app/Info.plist
