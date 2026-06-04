@@ -9,21 +9,199 @@ workflows:
       events:
         - push
     scripts:
-      - name: Auto-Repair and Compile
+      - name: Force Create Files and Compile
         script: |
           set -e
+          echo "🔥 NUCLEAR OPTION: Recreating all source files from scratch..."
           
-          # 1. FORCE FILE ORGANIZATION (Self-Healing)
-          echo "📁 Organizing files into Sources folder..."
+          # 1. Clean and Setup Directories
+          rm -rf Sources AVEApp.xcodeproj project.yml
           mkdir -p Sources
           
-          # Move files ONLY if they are currently in the root folder
-          [ -f "AVEApp.swift" ] && mv AVEApp.swift Sources/
-          [ -f "ContentView.swift" ] && mv ContentView.swift Sources/
-          [ -f "VideoEditorViewModel.swift" ] && mv VideoEditorViewModel.swift Sources/
-          [ -f "Info.plist" ] && mv Info.plist Sources/
+          # 2. CREATE FILES DIRECTLY (Bypassing GitHub Repo Issues)
           
-          # 2. GENERATE PROJECT STRUCTURE
+          # --- AVEApp.swift ---
+          cat << 'EOF' > Sources/AVEApp.swift
+          import SwiftUI
+          @main
+          struct AVEApp: App {
+              var body: some Scene {
+                  WindowGroup { ContentView() }
+              }
+          }
+          EOF
+
+          # --- ToolButton.swift ---
+          cat << 'EOF' > Sources/ToolButton.swift
+          import SwiftUI
+          struct ToolButton: View {
+              let title: String
+              let icon: String
+              let action: () -> Void
+              var body: some View {
+                  Button(action: action) {
+                      VStack(spacing: 8) {
+                          Image(systemName: icon).font(.title2).foregroundColor(.blue)
+                          Text(title).font(.caption).fontWeight(.semibold).foregroundColor(.primary)
+                      }
+                      .frame(width: 90, height: 80)
+                      .background(Color.secondary.opacity(0.1))
+                      .cornerRadius(12)
+                  }
+              }
+          }
+          EOF
+
+          # --- VideoEditorViewModel.swift ---
+          cat << 'EOF' > Sources/VideoEditorViewModel.swift
+          import AVFoundation
+          import SwiftUI
+          import Vision
+          import CoreImage
+          import CoreImage.CIFilterBuiltins
+          import PhotosUI
+
+          class VideoEditorViewModel: ObservableObject {
+              @Published var player: AVPlayer?
+              @Published var isProcessing = false
+              @Published var statusMessage = ""
+              @Published var imageSelection: PhotosPickerItem? = nil {
+                  didSet { loadSelectedVideo() }
+              }
+              private var currentURL: URL?
+              
+              private func loadSelectedVideo() {
+                  guard let item = imageSelection else { return }
+                  isProcessing = true
+                  statusMessage = "Loading..."
+                  item.loadTransferable(type: Data.self) { result in
+                      DispatchQueue.main.async {
+                          self.isProcessing = false
+                          if case .success(let data?) = result {
+                              let url = FileManager.default.temporaryDirectory.appendingPathComponent("input.mp4")
+                              try? data.write(to: url)
+                              self.currentURL = url
+                              self.player = AVPlayer(url: url)
+                              self.statusMessage = "Loaded!"
+                          }
+                      }
+                  }
+              }
+              func play() { player?.play() }
+              func pause() { player?.pause() }
+              
+              func applyFaceBlur() {
+                  guard let url = currentURL else { statusMessage = "No video!"; return }
+                  isProcessing = true
+                  statusMessage = "Blurring Faces..."
+                  let asset = AVAsset(url: url)
+                  let composition = AVMutableVideoComposition(asset: asset) { req in
+                      let handler = VNImageRequestHandler(ciImage: req.sourceImage, options: [:])
+                      let fr = VNDetectFaceRectanglesRequest()
+                      try? handler.perform([fr])
+                      var output = req.sourceImage
+                      if let results = fr.results {
+                          for face in results {
+                              let box = face.boundingBox
+                              let rect = CGRect(x: box.origin.x * req.sourceImage.extent.width, y: box.origin.y * req.sourceImage.extent.height, width: box.width * req.sourceImage.extent.width, height: box.height * req.sourceImage.extent.height)
+                              let blur = CIFilter.gaussianBlur()
+                              blur.inputImage = req.sourceImage
+                              blur.radius = 40
+                              if let bi = blur.outputImage {
+                                  output = bi.cropped(to: rect).composited(over: output)
+                              }
+                          }
+                      }
+                      req.finish(with: output, context: nil)
+                  }
+                  let item = AVPlayerItem(asset: asset)
+                  item.videoComposition = composition
+                  self.player = AVPlayer(playerItem: item)
+                  self.isProcessing = false
+                  self.statusMessage = "Done!"
+              }
+              
+              func exportVideo() {
+                  statusMessage = "Saving..."
+                  guard let asset = player?.currentItem?.asset else { return }
+                  guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else { return }
+                  let url = FileManager.default.temporaryDirectory.appendingPathComponent("export.mp4")
+                  try? FileManager.default.removeItem(at: url)
+                  export.outputURL = url
+                  export.outputFileType = .mp4
+                  export.videoComposition = player?.currentItem?.videoComposition
+                  export.exportAsynchronously {
+                      DispatchQueue.main.async {
+                          if export.status == .completed {
+                              PHPhotoLibrary.shared().performChanges({
+                                  PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+                              })
+                              self.statusMessage = "Saved!"
+                          } else {
+                              self.statusMessage = "Error"
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # --- ContentView.swift ---
+          cat << 'EOF' > Sources/ContentView.swift
+          import SwiftUI
+          import AVKit
+          import PhotosUI
+
+          struct ContentView: View {
+              @StateObject var vm = VideoEditorViewModel()
+              var body: some View {
+                  NavigationView {
+                      ZStack {
+                          VStack {
+                              if let player = vm.player {
+                                  VideoPlayer(player: player).frame(height: 320).cornerRadius(12)
+                              } else {
+                                  Text("Select Video").frame(height: 320).frame(maxWidth: .infinity).background(Color.gray.opacity(0.1))
+                              }
+                              HStack {
+                                  PhotosPicker(selection: $vm.imageSelection, matching: .videos) {
+                                      Text("Load Video").padding().background(Color.blue).foregroundColor(.white).cornerRadius(8)
+                                  }
+                                  Button("Play") { vm.play() }
+                                  Button("Pause") { vm.pause() }
+                              }
+                              HStack {
+                                  ToolButton(title: "Blur Faces", icon: "face.smiling", action: { vm.applyFaceBlur() })
+                                  ToolButton(title: "Save", icon: "square.and.arrow.up", action: { vm.exportVideo() })
+                              }
+                              Text(vm.statusMessage).foregroundColor(.blue)
+                          }
+                          if vm.isProcessing { ProgressView() }
+                      }
+                      .navigationTitle("AVE")
+                  }
+              }
+          }
+          EOF
+
+          # --- Info.plist ---
+          cat << 'EOF' > Sources/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleIdentifier</key><string>com.personal.aveapp</string>
+              <key>CFBundleName</key><string>AVEApp</string>
+              <key>CFBundleExecutable</key><string>AVEApp</string>
+              <key>CFBundleShortVersionString</key><string>1.0</string>
+              <key>CFBundleVersion</key><string>1</string>
+              <key>LSRequiresIPhoneOS</key><true/>
+              <key>NSPhotoLibraryUsageDescription</key><string>Save video</string>
+          </dict>
+          </plist>
+          EOF
+
+          # 3. GENERATE PROJECT
           echo "🛠️ Generating Project Spec..."
           cat << 'EOF' > project.yml
           name: AVEApp
@@ -34,38 +212,17 @@ workflows:
               type: application
               platform: iOS
               deploymentTarget: "16.0"
-              sources:
-                - Sources
+              sources: [Sources]
               settings:
                 INFOPLIST_FILE: Sources/Info.plist
                 PRODUCT_BUNDLE_IDENTIFIER: com.personal.aveapp
+                CODE_SIGN_IDENTITY: ""
+                CODE_SIGNING_REQUIRED: "NO"
+                CODE_SIGNING_ALLOWED: "NO"
           EOF
 
-          # 3. INSTALL & GENERATE XCODE PROJECT
-          echo "🚀 Installing XcodeGen..."
+          echo "🚀 Generating and Building..."
           brew install xcodegen
-          
-          echo "📁 Generating Xcode Project..."
           xcodegen generate
+          xcodebuild -project AVEApp.xcodeproj -scheme AVEApp -configuration Release -sdk iphoneos -derivedDataPath ./build_output CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
-          # 4. BUILD APP
-          echo "⚙️ Building App..."
-          xcodebuild -project AVEApp.xcodeproj \
-            -scheme AVEApp \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath ./build_output \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            COMPILER_INDEX_STORE_ENABLE=NO
-
-          # 5. PACKAGE IPA
-          echo "📦 Packaging IPA..."
-          mkdir -p Payload
-          cp -r ./build_output/Build/Products/Release-iphoneos/AVEApp.app Payload/
-          zip -r AVEApp.ipa Payload
-
-          echo "✅ Build Complete!"
-    artifacts:
-      - "*.ipa"
