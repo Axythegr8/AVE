@@ -15,7 +15,7 @@ workflows:
           echo "🔥 NUCLEAR OPTION: Recreating all source files from scratch..."
           
           # 1. Clean and Setup Directories
-          rm -rf Sources AVEApp.xcodeproj project.yml
+          rm -rf Sources AVEApp.xcodeproj project.yml build_output Payload
           mkdir -p Sources
           
           # 2. CREATE FILES DIRECTLY (Bypassing GitHub Repo Issues)
@@ -201,7 +201,7 @@ workflows:
           </plist>
           EOF
 
-          # 3. GENERATE PROJECT
+          # 3. GENERATE Xcode PROJECT STRUCT
           echo "🛠️ Generating Project Spec..."
           cat << 'EOF' > project.yml
           name: AVEApp
@@ -224,5 +224,3 @@ workflows:
           echo "🚀 Generating and Building..."
           brew install xcodegen
           xcodegen generate
-          xcodebuild -project AVEApp.xcodeproj -scheme AVEApp -configuration Release -sdk iphoneos -derivedDataPath ./build_output CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-
