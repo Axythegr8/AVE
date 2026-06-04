@@ -9,18 +9,22 @@ workflows:
       events:
         - push
     scripts:
-      - name: Restructure Sources and Compile
+      - name: Auto-Repair and Compile
         script: |
           set -e
-          echo "📁 Restructuring workspace into target source groups..."
+          
+          # 1. FORCE FILE ORGANIZATION (Self-Healing)
+          echo "📁 Organizing files into Sources folder..."
           mkdir -p Sources
           
-          # Safely move your code files into the expected directory layout
-          [ -f AVEApp.swift ] && mv AVEApp.swift Sources/
-          [ -f ContentView.swift ] && mv ContentView.swift Sources/
-          [ -f VideoEditorViewModel.swift ] && mv VideoEditorViewModel.swift Sources/
+          # Move files ONLY if they are currently in the root folder
+          [ -f "AVEApp.swift" ] && mv AVEApp.swift Sources/
+          [ -f "ContentView.swift" ] && mv ContentView.swift Sources/
+          [ -f "VideoEditorViewModel.swift" ] && mv VideoEditorViewModel.swift Sources/
+          [ -f "Info.plist" ] && mv Info.plist Sources/
           
-          echo "🛠️ Creating localized project specification template..."
+          # 2. GENERATE PROJECT STRUCTURE
+          echo "🛠️ Generating Project Spec..."
           cat << 'EOF' > project.yml
           name: AVEApp
           options:
@@ -29,19 +33,23 @@ workflows:
             AVEApp:
               type: application
               platform: iOS
-              deploymentTarget: "15.0"
+              deploymentTarget: "16.0"
               sources:
-                - path: Sources
-                - path: Info.plist
+                - Sources
+              settings:
+                INFOPLIST_FILE: Sources/Info.plist
+                PRODUCT_BUNDLE_IDENTIFIER: com.personal.aveapp
           EOF
 
-          echo "🚀 Installing project building engines..."
+          # 3. INSTALL & GENERATE XCODE PROJECT
+          echo "🚀 Installing XcodeGen..."
           brew install xcodegen
-
-          echo "📁 Engineering valid Xcode directory blueprints..."
+          
+          echo "📁 Generating Xcode Project..."
           xcodegen generate
 
-          echo "⚙️ Running machine compilation via official Apple SDKs..."
+          # 4. BUILD APP
+          echo "⚙️ Building App..."
           xcodebuild -project AVEApp.xcodeproj \
             -scheme AVEApp \
             -configuration Release \
@@ -52,11 +60,12 @@ workflows:
             CODE_SIGN_IDENTITY="" \
             COMPILER_INDEX_STORE_ENABLE=NO
 
-          echo "📦 Compressing structures into production-ready IPA layout..."
+          # 5. PACKAGE IPA
+          echo "📦 Packaging IPA..."
           mkdir -p Payload
           cp -r ./build_output/Build/Products/Release-iphoneos/AVEApp.app Payload/
           zip -r AVEApp.ipa Payload
 
-          echo "✅ Machine compilation complete!"
+          echo "✅ Build Complete!"
     artifacts:
       - "*.ipa"
