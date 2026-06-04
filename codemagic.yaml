@@ -1,6 +1,6 @@
 workflows:
-  ios-final-build:
-    name: Build AVE App
+  ios-diagnostic-build:
+    name: Diagnose AVE App Error
     max_build_duration: 15
     instance_type: mac_mini_m2
     environment:
@@ -8,15 +8,14 @@ workflows:
     scripts:
       - name: Compile All Files
         script: |
-          set -e
-          echo "🚀 Starting Build..."
+          set +e # Do not crash immediately, let us read the error log
           
-          # 1. Create App Folder
+          echo "📁 Repository Contents:"
+          ls -la
+          
           mkdir -p build/AVEApp.app
           
-          # 2. Compile ALL .swift files together
-          # We use *.swift to grab both AVEApp.swift and ContentView.swift
-          echo "⚙️ Compiling Swift Files..."
+          echo "⚙️ Compiling and saving error logs..."
           xcrun -sdk iphoneos swiftc *.swift \
             -o build/AVEApp.app/AVEApp \
             -target arm64-apple-ios16.0 \
@@ -25,21 +24,20 @@ workflows:
             -framework AVFoundation \
             -framework Vision \
             -framework UIKit \
-            -framework Photos
+            -framework Photos \
+            2> compiler_errors.txt
           
-          # 3. Copy the Info.plist you just created
-          if [ -f Info.plist ]; then
-             cp Info.plist build/AVEApp.app/Info.plist
+          if [ -f "build/AVEApp.app/AVEApp" ]; then
+            echo "✅ Compilation actually worked! Packaging IPA..."
+            cp Info.plist build/AVEApp.app/Info.plist
+            mkdir -p Payload && cp -r build/AVEApp.app Payload/
+            zip -r AVEApp.ipa Payload
           else
-             echo "❌ CRITICAL ERROR: You forgot to create Info.plist!"
-             exit 1
+            echo "❌ COMPILER CRASHED! Here is the exact reason why:"
+            echo "===================================================="
+            cat compiler_errors.txt
+            echo "===================================================="
+            exit 1
           fi
-          
-          # 4. Zip it
-          mkdir -p Payload
-          cp -r build/AVEApp.app Payload/
-          zip -r AVEApp.ipa Payload
-          
-          echo "✅ SUCCESS! Download your IPA."
     artifacts:
-      - AVEApp.ipa
+      - compiler_errors.txt
