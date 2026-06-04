@@ -9,36 +9,46 @@ workflows:
       events:
         - push
     scripts:
-      - name: Initialize Package and Compile Native App
+      - name: Auto Generation and Device Compile
         script: |
           set -e
-          echo "📦 Initializing native Swift package structure..."
-          rm -rf Package.swift Sources
-          swift package init --type executable --name AVEApp
-          
-          echo "📁 Moving codebase to source target directory..."
-          rm -f Sources/main.swift
-          cp AVEApp.swift Sources/
-          cp ContentView.swift Sources/
-          cp VideoEditorViewModel.swift Sources/
-          
-          echo "⚙️ Running machine compilation toolchain..."
-          swift build -c release
-          
-          echo "📁 Creating temporary native iOS directory structure..."
-          mkdir -p build/AVEApp.app
-          
-          echo "🚀 Copying compiled release binary..."
-          cp .build/release/AVEApp build/AVEApp.app/AVEApp
-          
-          echo "📄 Embedding configuration security plist..."
-          cp Info.plist build/AVEApp.app/Info.plist
-          
-          echo "📦 Wrapping binaries into installable iOS Payload..."
+          echo "🛠️ Creating structural project specification file..."
+          cat << 'EOF' > project.yml
+          name: AVEApp
+          options:
+            bundleIdPrefix: com.personal
+          targets:
+            AVEApp:
+              type: application
+              platform: iOS
+              deploymentTarget: "15.0"
+              sources:
+                - path: AVEApp.swift
+                - path: ContentView.swift
+                - path: VideoEditorViewModel.swift
+                - path: Info.plist
+          EOF
+
+          echo "🚀 Installing project building engines..."
+          brew install xcodegen
+
+          echo "📁 Engineering active Xcode directory structures..."
+          xcodegen generate
+
+          echo "⚙️ Compiling architecture via official Apple SDKs..."
+          xcodebuild -project AVEApp.xcodeproj \
+            -scheme AVEApp \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+          echo "📦 Packaging native application contents to archive archive payload container..."
           mkdir -p Payload
-          cp -r build/AVEApp.app Payload/
+          cp -r build/Release-iphoneos/AVEApp.app Payload/
           zip -r AVEApp.ipa Payload
-          
-          echo "✅ Compilation completely successful!"
+
+          echo "✅ Machine compilation complete!"
     artifacts:
       - "*.ipa"
