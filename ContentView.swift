@@ -36,7 +36,7 @@ struct ContentView: View {
                     // FILE MEDIA PICKER CONTROLS
                     HStack(spacing: 16) {
                         PhotosPicker(selection: $vm.imageSelection, matching: .videos) {
-                            Label("Import Media", systemName: "photo.on.rectangle.angled")
+                            Label("Import Media", systemImage: "photo.on.rectangle.angled")
                                 .font(.body)
                                 .bold()
                                 .padding(.horizontal, 16)
