@@ -9,25 +9,22 @@ workflows:
       events:
         - push
     scripts:
-      - name: Force Create Files and Compile
+      - name: Create and Compile (Safe Mode)
         script: |
           set -e
-          echo "🔥 NUCLEAR OPTION: Recreating all source files from scratch..."
+          echo "🛡️ SAFE MODE: Rebuilding from scratch..."
           
-          # 1. Clean and Setup Directories
-          rm -rf Sources AVEApp.xcodeproj project.yml build_output Payload dist
-          mkdir -p Sources dist
+          # 1. Clean Everything
+          rm -rf Sources AVEApp.xcodeproj project.yml build_output Payload *.ipa
+          mkdir -p Sources
           
-          # 2. CREATE FILES DIRECTLY
-          
+          # 2. CREATE CODE FILES
           # --- AVEApp.swift ---
           cat << 'EOF' > Sources/AVEApp.swift
           import SwiftUI
           @main
           struct AVEApp: App {
-              var body: some Scene {
-                  WindowGroup { ContentView() }
-              }
+              var body: some Scene { WindowGroup { ContentView() } }
           }
           EOF
 
@@ -69,7 +66,6 @@ workflows:
                   didSet { loadSelectedVideo() }
               }
               private var currentURL: URL?
-              
               private func loadSelectedVideo() {
                   guard let item = imageSelection else { return }
                   isProcessing = true
@@ -89,11 +85,10 @@ workflows:
               }
               func play() { player?.play() }
               func pause() { player?.pause() }
-              
               func applyFaceBlur() {
                   guard let url = currentURL else { statusMessage = "No video!"; return }
                   isProcessing = true
-                  statusMessage = "Blurring Faces..."
+                  statusMessage = "Blurring..."
                   let asset = AVAsset(url: url)
                   let composition = AVMutableVideoComposition(asset: asset) { req in
                       let handler = VNImageRequestHandler(ciImage: req.sourceImage, options: [:])
@@ -120,7 +115,6 @@ workflows:
                   self.isProcessing = false
                   self.statusMessage = "Done!"
               }
-              
               func exportVideo() {
                   statusMessage = "Saving..."
                   guard let asset = player?.currentItem?.asset else { return }
@@ -201,8 +195,8 @@ workflows:
           </plist>
           EOF
 
-          # 3. GENERATE Xcode PROJECT STRUCT
-          echo "🛠️ Generating Project Spec..."
+          # 3. BUILD
+          echo "🛠️ Configuring Project..."
           cat << 'EOF' > project.yml
           name: AVEApp
           options:
@@ -221,8 +215,11 @@ workflows:
                 CODE_SIGNING_ALLOWED: "NO"
           EOF
 
-          echo "🚀 Generating and Building..."
+          echo "🚀 Building..."
           brew install xcodegen
           xcodegen generate
           xcodebuild -project AVEApp.xcodeproj -scheme AVEApp -configuration Release -sdk iphoneos -derivedDataPath ./build_output CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
+          echo "📦 Packaging to ROOT folder..."
+          mkdir -p Payload
+          cp -r ./build_output/Build/Products/Release-iphoneos/AVEApp.app Payload/
