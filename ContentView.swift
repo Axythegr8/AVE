@@ -18,7 +18,7 @@ struct ContentView: View {
                             .shadow(radius: 4)
                     } else {
                         VStack(spacing: 12) {
-                            Image(systemName: "shield.text.feed.fill")
+                            Image(systemName: "shield.checkerboard")
                                 .font(.system(size: 44))
                                 .foregroundColor(.blue)
                             Text("100% Private Offline AI Studio")
