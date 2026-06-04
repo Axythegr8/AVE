@@ -23,10 +23,10 @@ workflows:
               platform: iOS
               deploymentTarget: "15.0"
               sources:
-                - path: AVEApp.swift
-                - path: ContentView.swift
-                - path: VideoEditorViewModel.swift
-                - path: Info.plist
+                - AVEApp.swift
+                - ContentView.swift
+                - VideoEditorViewModel.swift
+                - Info.plist
           EOF
 
           echo "🚀 Installing project building engines..."
@@ -40,13 +40,14 @@ workflows:
             -scheme AVEApp \
             -configuration Release \
             -sdk iphoneos \
+            -derivedDataPath ./build_output \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
 
-          echo "📦 Packaging native application contents to archive archive payload container..."
+          echo "📦 Packaging native application contents into Payload container..."
           mkdir -p Payload
-          cp -r build/Release-iphoneos/AVEApp.app Payload/
+          cp -r ./build_output/Build/Products/Release-iphoneos/AVEApp.app Payload/
           zip -r AVEApp.ipa Payload
 
           echo "✅ Machine compilation complete!"
