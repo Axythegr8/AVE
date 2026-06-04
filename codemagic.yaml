@@ -1,1 +1,28 @@
-
+workflows:
+  ios-custom-build:
+    name: Build Native Swift App
+    max_build_duration: 15
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Create App Structure and Build
+        script: |
+          set -e
+          echo "🔨 Setting up manual bundle directories..."
+          mkdir -p build/AVEApp.app
+          
+          echo "⚙️ Compiling single Swift file..."
+          xcrun -sdk iphoneos swiftc -O -sdk $(xcrun --sdk iphoneos --show-sdk-path) -target arm64-apple-ios15.0 AVEApp.swift -o build/AVEApp.app/AVEApp
+          
+          echo "📄 Copying configuration info plist..."
+          cp ContentView.plist build/AVEApp.app/Info.plist
+          
+          echo "📦 Packaging into installable IPA format..."
+          mkdir -p Payload
+          cp -r build/AVEApp.app Payload/
+          zip -r AVEApp.ipa Payload
+          
+          echo "✅ Process finished successfully!"
+    artifacts:
+      - *.ipa
