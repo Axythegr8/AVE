@@ -15,7 +15,7 @@ workflows:
           echo "🔥 NUCLEAR OPTION: Recreating all source files from scratch..."
           
           # 1. Clean and Setup Directories
-          rm -rf Sources AVEApp.xcodeproj project.yml build_output Payload
+          rm -rf Sources AVEApp.xcodeproj project.yml build_output Payload *.ipa
           mkdir -p Sources
           
           # 2. CREATE FILES DIRECTLY (Bypassing GitHub Repo Issues)
