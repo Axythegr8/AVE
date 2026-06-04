@@ -1,0 +1,14 @@
+name: AVE
+options:
+  bundleIdPrefix: com.axythegr8
+targets:
+  AVE:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources: 
+      - AVEApp.swift
+      - ContentView.swift
+      - VideoEditorViewModel.swift
+    info:
+      path: Info.plist
