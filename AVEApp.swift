@@ -4,7 +4,7 @@ import SwiftUI
 struct AVEApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView() // This launches your ContentView.swift
         }
     }
 }
