@@ -15,7 +15,6 @@ class VideoEditorViewModel: ObservableObject {
 
     private var currentURL: URL?
 
-    // 1. OFFLINE DEVICE GALLERY LOADER
     private func loadSelectedVideo() {
         guard let item = imageSelection else { return }
         isProcessing = true
@@ -42,7 +41,6 @@ class VideoEditorViewModel: ObservableObject {
     func play() { player?.play() }
     func pause() { player?.pause() }
 
-    // 2. HARDWARE-ACCELERATED LOCAL AI FACE BLURRING
     func applyFaceBlur() {
         guard let inputURL = currentURL else {
             statusMessage = "Please import a video first!"
@@ -76,10 +74,10 @@ class VideoEditorViewModel: ObservableObject {
                     height: box.size.height * size.height
                 )
                 
-                let blur = CIFilter.gaussianBlur()
-                blur.inputImage = sourceImage
-                blur.radius = 45.0
-                guard let blurredImage = blur.outputImage else { continue }
+                let filter = CIFilter.gaussianBlur()
+                filter.radius = 45.0
+                filter.inputImage = sourceImage
+                guard let blurredImage = filter.outputImage else { continue }
                 
                 outputImage = blurredImage.cropped(to: faceRect).composited(over: outputImage)
             }
@@ -94,7 +92,6 @@ class VideoEditorViewModel: ObservableObject {
         self.statusMessage = "Local AI Face Blur applied!"
     }
 
-    // 3. OFFLINE ENCODING AND GALLERY EXPORT
     func exportVideo() {
         guard let playerItem = player?.currentItem else {
             statusMessage = "No active composition track!"
@@ -124,7 +121,7 @@ class VideoEditorViewModel: ObservableObject {
                     }
                 } else {
                     self.isProcessing = false
-                    self.statusMessage = "Local renderer rendering failed."
+                    self.statusMessage = "Local renderer failed."
                 }
             }
         }
