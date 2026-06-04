@@ -1,43 +1,14 @@
 workflows:
-  ios-final-build:
-    name: Build AVE Production App
-    max_build_duration: 15
-    instance_type: mac_mini_m2
-    environment:
-      xcode: latest
+  ios-workflow:
+    name: iOS Workflow
     scripts:
-      - name: Compile All Files
+      # ADD THIS NEW SCRIPT BLOCK FIRST:
+      - name: Generate Xcode Project with XcodeGen
         script: |
-          set -e
-          echo "🚀 Starting Production Build..."
-          
-          # 1. Create the App structural folders
-          mkdir -p build/AVEApp.app
-          
-          # 2. Compile all swift components together with required hardware framework links
-          echo "⚙️ Compiling clean Swift files..."
-          xcrun -sdk iphoneos swiftc *.swift \
-            -o build/AVEApp.app/AVEApp \
-            -target arm64-apple-ios16.0 \
-            -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
-            -framework SwiftUI \
-            -framework AVFoundation \
-            -framework Vision \
-            -framework UIKit \
-            -framework Photos \
-            -framework AVKit \
-            -framework PhotosUI
-          
-          # 3. Inject the corrected schema Info.plist metadata sheet
-          echo "📄 Attaching application metadata profiles..."
-          cp Info.plist build/AVEApp.app/Info.plist
-          
-          # 4. Packaging into binary container payload
-          echo "📦 Compressing into IPA installation framework..."
-          mkdir -p Payload
-          cp -r build/AVEApp.app Payload/
-          zip -r AVEApp.ipa Payload
-          
-          echo "✅ Application compiled perfectly!"
-    artifacts:
-      - AVEApp.ipa
+          brew install xcodegen
+          xcodegen generate
+
+      # YOUR EXISTING BUILD SCRIPT (ensure it points to the generated project):
+      - name: Build iOS app
+        script: |
+          xcodebuild build -project "AVE.xcodeproj" -scheme "AVE" -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO
