@@ -2,13 +2,23 @@ workflows:
   ios-workflow:
     name: iOS Workflow
     scripts:
-      # ADD THIS NEW SCRIPT BLOCK FIRST:
       - name: Generate Xcode Project with XcodeGen
         script: |
           brew install xcodegen
           xcodegen generate
 
-      # YOUR EXISTING BUILD SCRIPT (ensure it points to the generated project):
-      - name: Build iOS app
+      - name: Build iOS app and Package Unsigned IPA
         script: |
-          xcodebuild build -project "AVE.xcodeproj" -scheme "AVE" -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO
+          # 1. Build the app and force it to output to a known folder
+          xcodebuild build -project "AVE.xcodeproj" -scheme "AVE" -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO CONFIGURATION_BUILD_DIR=$CM_BUILD_DIR/build_output
+          
+          # 2. Create the standard Apple Payload structure
+          mkdir -p Payload
+          mv $CM_BUILD_DIR/build_output/AVE.app Payload/
+          
+          # 3. Zip it into an .ipa file
+          zip -r AVE_unsigned.ipa Payload
+
+    # ADD THIS NEW ARTIFACTS SECTION:
+    artifacts:
+      - AVE_unsigned.ipa
