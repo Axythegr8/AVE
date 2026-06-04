@@ -1,127 +1,145 @@
-import AVFoundation
 import SwiftUI
-import Vision
-import CoreImage
-import CoreImage.CIFilterBuiltins
+import AVKit
 import PhotosUI
 
-class VideoEditorViewModel: ObservableObject {
-    @Published var player: AVPlayer?
-    @Published var isProcessing = false
-    @Published var statusMessage = ""
-    @Published var imageSelection: PhotosPickerItem? = nil {
-        didSet { loadSelectedVideo() }
-    }
+struct ContentView: View {
+    @StateObject var vm = VideoEditorViewModel()
 
-    private var currentURL: URL?
+    var body: some View {
+        NavigationView {
+            ZStack {
+                VStack(spacing: 20) {
+                    
+                    // NATIVE PREVIEW DISPLAY WINDOW
+                    if let player = vm.player {
+                        VideoPlayer(player: player)
+                            .frame(height: 320)
+                            .cornerRadius(16)
+                            .shadow(radius: 4)
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "shield.text.feed.fill")
+                                .font(.system(size: 44))
+                                .foregroundColor(.blue)
+                            Text("100% Private Offline AI Studio")
+                                .font(.headline)
+                            Text("Select local video assets to process securely")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(height: 320)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(16)
+                    }
 
-    private func loadSelectedVideo() {
-        guard let item = imageSelection else { return }
-        isProcessing = true
-        statusMessage = "Accessing secure local storage..."
-        
-        item.loadTransferable(type: Data.self) { result in
-            DispatchQueue.main.async {
-                self.isProcessing = false
-                switch result {
-                case .success(let data?):
-                    let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("input_raw.mp4")
-                    try? FileManager.default.removeItem(at: tempURL)
-                    try? data.write(to: tempURL)
-                    self.currentURL = tempURL
-                    self.player = AVPlayer(url: tempURL)
-                    self.statusMessage = "Video imported safely!"
-                default:
-                    self.statusMessage = "Local read failure."
-                }
-            }
-        }
-    }
+                    // FILE MEDIA PICKER CONTROLS
+                    HStack(spacing: 16) {
+                        PhotosPicker(selection: $vm.imageSelection, matching: .videos) {
+                            Label("Import Media", systemName: "photo.on.rectangle.angled")
+                                .font(.body)
+                                .bold()
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
 
-    func play() { player?.play() }
-    func pause() { player?.pause() }
+                        Button(action: { vm.play() }) {
+                            Image(systemName: "play.fill")
+                                .font(.title3)
+                                .padding(12)
+                                .background(Color.green.opacity(0.15))
+                                .foregroundColor(.green)
+                                .clipShape(Circle())
+                        }
 
-    func applyFaceBlur() {
-        guard let inputURL = currentURL else {
-            statusMessage = "Please import a video first!"
-            return
-        }
-        isProcessing = true
-        statusMessage = "Neural Engine tracking faces..."
-        
-        let asset = AVAsset(url: inputURL)
-        let composition = AVMutableVideoComposition(asset: asset) { request in
-            let sourceImage = request.sourceImage
-            let handler = VNImageRequestHandler(ciImage: sourceImage, options: [:])
-            let faceRequest = VNDetectFaceRectanglesRequest()
-            
-            try? handler.perform([faceRequest])
-            
-            guard let results = faceRequest.results, !results.isEmpty else {
-                request.finish(with: sourceImage, context: nil)
-                return
-            }
-            
-            var outputImage = sourceImage
-            let size = sourceImage.extent.size
-            
-            for face in results {
-                let box = face.boundingBox
-                let faceRect = CGRect(
-                    x: box.origin.x * size.width,
-                    y: box.origin.y * size.height,
-                    width: box.size.width * size.width,
-                    height: box.size.height * size.height
-                )
-                
-                let filter = CIFilter.gaussianBlur()
-                filter.radius = 45.0
-                filter.inputImage = sourceImage
-                guard let blurredImage = filter.outputImage else { continue }
-                
-                outputImage = blurredImage.cropped(to: faceRect).composited(over: outputImage)
-            }
-            request.finish(with: outputImage, context: nil)
-        }
-        
-        let playerItem = AVPlayerItem(asset: asset)
-        playerItem.videoComposition = composition
-        self.player = AVPlayer(playerItem: playerItem)
-        
-        self.isProcessing = false
-        self.statusMessage = "Local AI Face Blur applied!"
-    }
-
-    func exportVideo() {
-        guard let playerItem = player?.currentItem else {
-            statusMessage = "No active composition track!"
-            return
-        }
-        isProcessing = true
-        statusMessage = "Rendering local MP4 container..."
-        
-        guard let exporter = AVAssetExportSession(asset: playerItem.asset, presetName: AVAssetExportPresetHighestQuality) else { return }
-        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("ave_render_output.mp4")
-        try? FileManager.default.removeItem(at: outputURL)
-        
-        exporter.outputURL = outputURL
-        exporter.outputFileType = .mp4
-        exporter.videoComposition = playerItem.videoComposition
-        
-        exporter.exportAsynchronously {
-            DispatchQueue.main.async {
-                if exporter.status == .completed {
-                    PHPhotoLibrary.shared().performChanges({
-                        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: outputURL)
-                    }) { success, _ in
-                        DispatchQueue.main.async {
-                            self.isProcessing = false
-                            self.statusMessage = success ? "Saved to Camera Roll!" : "Gallery permission error."
+                        Button(action: { vm.pause() }) {
+                            Image(systemName: "pause.fill")
+                                .font(.title3)
+                                .padding(12)
+                                .background(Color.red.opacity(0.15))
+                                .foregroundColor(.red)
+                                .clipShape(Circle())
                         }
                     }
-                } else {
-                    self.isProcessing = false
-                    self.statusMessage = "Local renderer failed."
+
+                    if !vm.statusMessage.isEmpty {
+                        Text(vm.statusMessage)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.08))
+                            .cornerRadius(8)
+                    }
+
+                    Divider().padding(.vertical, 5)
+
+                    // OFFLINE UTILITIES INTERFACE CONTROL TOOLBAR
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("On-Device AI Engine")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        HStack(spacing: 16) {
+                            Button(action: { vm.applyFaceBlur() }) {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "face.smiling.fill")
+                                        .font(.title2)
+                                    Text("AI Face Blur")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(width: 100, height: 80)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(12)
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: { vm.exportVideo() }) {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "square.and.arrow.up.fill")
+                                        .font(.title2)
+                                    Text("Save Video")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(width: 100, height: 80)
+                                .background(Color.green.opacity(0.1))
+                                .foregroundColor(.green)
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                    }
+
+                    Spacer()
+                }
+                .padding()
+                .navigationTitle("AVE Private")
+                
+                // RENDERING ISOLATED HARDWARE OVERLAY BLOCKER
+                if vm.isProcessing {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .scaleEffect(1.3)
+                        Text(vm.statusMessage)
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                    }
+                    .padding(24)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(14)
+                    .shadow(radius: 25)
                 }
             }
         }
