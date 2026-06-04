@@ -1,6 +1,6 @@
 workflows:
-  ios-diagnostic-build:
-    name: Diagnose AVE App Error
+  ios-final-build:
+    name: Build AVE Production App
     max_build_duration: 15
     instance_type: mac_mini_m2
     environment:
@@ -8,14 +8,14 @@ workflows:
     scripts:
       - name: Compile All Files
         script: |
-          set +e # Do not crash immediately, let us read the error log
+          set -e
+          echo "🚀 Starting Production Build..."
           
-          echo "📁 Repository Contents:"
-          ls -la
-          
+          # 1. Create the App structural folders
           mkdir -p build/AVEApp.app
           
-          echo "⚙️ Compiling and saving error logs..."
+          # 2. Compile all swift components together with required hardware framework links
+          echo "⚙️ Compiling clean Swift files..."
           xcrun -sdk iphoneos swiftc *.swift \
             -o build/AVEApp.app/AVEApp \
             -target arm64-apple-ios16.0 \
@@ -25,19 +25,19 @@ workflows:
             -framework Vision \
             -framework UIKit \
             -framework Photos \
-            2> compiler_errors.txt
+            -framework AVKit \
+            -framework PhotosUI
           
-          if [ -f "build/AVEApp.app/AVEApp" ]; then
-            echo "✅ Compilation actually worked! Packaging IPA..."
-            cp Info.plist build/AVEApp.app/Info.plist
-            mkdir -p Payload && cp -r build/AVEApp.app Payload/
-            zip -r AVEApp.ipa Payload
-          else
-            echo "❌ COMPILER CRASHED! Here is the exact reason why:"
-            echo "===================================================="
-            cat compiler_errors.txt
-            echo "===================================================="
-            exit 1
-          fi
+          # 3. Inject the corrected schema Info.plist metadata sheet
+          echo "📄 Attaching application metadata profiles..."
+          cp Info.plist build/AVEApp.app/Info.plist
+          
+          # 4. Packaging into binary container payload
+          echo "📦 Compressing into IPA installation framework..."
+          mkdir -p Payload
+          cp -r build/AVEApp.app Payload/
+          zip -r AVEApp.ipa Payload
+          
+          echo "✅ Application compiled perfectly!"
     artifacts:
-      - compiler_errors.txt
+      - AVEApp.ipa
