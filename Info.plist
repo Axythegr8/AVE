@@ -1,2 +1,32 @@
-<key>CFBundleDisplayName</key>
-<string>AVE</string>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>AVEApp</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.axy.aveapp</string>
+    <key>CFBundleName</key>
+    <string>AVEApp</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <true/>
+    </dict>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <!-- PERMISSIONS FOR VIDEO & AI -->
+    <key>NSCameraUsageDescription</key>
+    <string>We need camera access for video editing.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need microphone access for audio.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>We need access to save your videos.</string>
+</dict>
+</plist>
